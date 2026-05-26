@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · Instagram Scheduler{% endblock %}
+{% block content %}
+  <section class="hero">
+    <div>
+      <h1>Instagram Scheduler</h1>
+      <p>Personal posting gateway for homelessbot via Playwright automation.</p>
+    </div>
+    <div class="runtime">
+      <span class="pill">worker {{ "on" if settings.worker_enabled else "off" }}</span>
+      <span class="pill">dry-run {{ "on" if settings.instagram_dry_run else "off" }}</span>
+    </div>
+  </section>
+
+  <section class="stats">
+    {% for key in ["pending", "processing", "retry_scheduled", "published", "failed", "canceled"] %}
+      <a class="stat" href="{{ url_for('dashboard_posts') }}?status={{ key }}">
+        <span>{{ key }}</span>
+        <strong>{{ stats[key] }}</strong>
+      </a>
+    {% endfor %}
+  </section>
+
+  <section class="postBuckets">
+    <div class="sectionTitle">
+      <div>
+        <h2>Posts</h2>
+        <p class="sectionHint">Schedule, sent, and review queues are separated so the work surface stays readable.</p>
+      </div>
+      <a class="button" href="{{ url_for('dashboard_posts') }}">View all</a>
+    </div>
+
+    <div class="tabBar" role="tablist" aria-label="Post queues">
+      <button class="tabButton active" type="button" data-tab="schedule">Schedule <span>{{ scheduled_posts|length }}</span></button>
+      <button class="tabButton" type="button" data-tab="sent">Sent <span>{{ sent_posts|length }}</span></button>
+      <button class="tabButton" type="button" data-tab="review">Review <span>{{ review_posts|length }}</span></button>
+    </div>
+
+    <div class="tabPanel active" data-panel="schedule">
+      <div class="queueIntro">
+        <strong>Scheduled posts</strong>
+        <span>Pending only, sorted from nearest schedule to latest.</span>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Headline</th><th>Schedule</th><th>Status</th><th>Source</th></tr>
+        </thead>
+        <tbody>
+        {% for post in scheduled_posts %}
+          <tr>
+            <td><a href="{{ url_for('dashboard_post_detail', post_id=post.id) }}">{{ post.headline or post.id }}</a></td>
+            <td>{{ post.scheduled_date_wib }} {{ post.scheduled_time_wib }} WIB</td>
+            <td><span class="status {{ post.status }}">{{ post.status }}</span></td>
+            <td>{{ post.source }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="4" class="emptyCell">No pending scheduled posts.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="tabPanel" data-panel="sent">
+      <div class="queueIntro">
+        <strong>Sent posts</strong>
+        <span>Published posts, newest sent first.</span>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Headline</th><th>Schedule</th><th>Published</th><th>Status</th><th>Source</th></tr>
+        </thead>
+        <tbody>
+        {% for post in sent_posts %}
+          <tr>
+            <td><a href="{{ url_for('dashboard_post_detail', post_id=post.id) }}">{{ post.headline or post.id }}</a></td>
+            <td>{{ post.scheduled_date_wib }} {{ post.scheduled_time_wib }} WIB</td>
+            <td>{{ post.published_at_utc or "-" }}</td>
+            <td><span class="status {{ post.status }}">{{ post.status }}</span></td>
+            <td>{{ post.source }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5" class="emptyCell">No sent posts yet.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="tabPanel" data-panel="review">
+      <div class="queueIntro">
+        <strong>Review queue</strong>
+        <span>Failed, canceled, and retry-scheduled posts that need attention.</span>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Headline</th><th>Schedule</th><th>Status</th><th>Retry</th><th>Error</th></tr>
+        </thead>
+        <tbody>
+        {% for post in review_posts %}
+          <tr>
+            <td><a href="{{ url_for('dashboard_post_detail', post_id=post.id) }}">{{ post.headline or post.id }}</a></td>
+            <td>{{ post.scheduled_date_wib }} {{ post.scheduled_time_wib }} WIB</td>
+            <td><span class="status {{ post.status }}">{{ post.status }}</span></td>
+            <td>{{ post.retry_count }}/{{ post.max_retries }}</td>
+            <td>{{ post.error_message or post.cancel_reason or "-" }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5" class="emptyCell">Nothing to review.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="logsHeader dashboardLogsHeader">
+    <div>
+      <h2>System Logs</h2>
+      <p>Live updates from API, scheduler, worker, media ingest, and callbacks.</p>
+    </div>
+    <div class="runtime">
+      <span class="pill" id="pollState">connecting</span>
+      <span class="pill" id="lastUpdated">never</span>
+    </div>
+  </section>
+
+  <section class="logPanel dashboardLogPanel">
+    <div id="logList" class="logList compact" aria-live="polite"></div>
+  </section>
+
+  <script>
+    document.querySelectorAll(".tabButton").forEach((button) => {
+      button.addEventListener("click", () => {
+        const target = button.dataset.tab;
+        document.querySelectorAll(".tabButton").forEach((item) => item.classList.toggle("active", item === button));
+        document.querySelectorAll(".tabPanel").forEach((panel) => panel.classList.toggle("active", panel.dataset.panel === target));
+      });
+    });
+
+    const logList = document.getElementById("logList");
+    const pollState = document.getElementById("pollState");
+    const lastUpdated = document.getElementById("lastUpdated");
+    let inFlight = false;
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function formatMeta(meta) {
+      const entries = Object.entries(meta || {}).filter(([key]) => !/(api|token|secret|password|key)/i.test(key));
+      if (!entries.length) return "";
+      return entries.map(([key, value]) => {
+        const text = typeof value === "string" || typeof value === "number" || typeof value === "boolean"
+          ? String(value)
+          : JSON.stringify(value);
+        return `${key}: ${text}`;
+      }).join(" · ");
+    }
+
+    function renderLogs(events) {
+      if (!events.length) {
+        logList.innerHTML = '<div class="emptyState">No logs yet.</div>';
+        return;
+      }
+      logList.innerHTML = events.map((event) => {
+        const title = escapeHtml(event.headline || event.external_id || event.post_id || "system");
+        const meta = escapeHtml(formatMeta(event.meta));
+        const level = escapeHtml(event.level);
+        const status = escapeHtml(event.status || "");
+        const eventType = escapeHtml(event.event_type);
+        const message = escapeHtml(event.message);
+        const source = escapeHtml(event.source || "");
+        const postId = encodeURIComponent(event.post_id || "");
+        return `
+          <article class="logItem ${level}">
+            <div class="logTime">${escapeHtml(event.created_at)}</div>
+            <div class="logMain">
+              <div class="logLine">
+                <span class="logLevel ${level}">${level}</span>
+                <strong>${eventType}</strong>
+                ${status ? `<span class="status ${status}">${status}</span>` : ""}
+              </div>
+              <div class="logMessage">${message}</div>
+              <div class="logContext">
+                ${event.post_id ? `<a href="{{ url_for('dashboard_posts') }}/${postId}">${title}</a>` : title}
+                ${source ? `<span>${source}</span>` : ""}
+                ${meta ? `<span>${meta}</span>` : ""}
+              </div>
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    async function refreshLogs() {
+      if (inFlight) return;
+      inFlight = true;
+      pollState.textContent = "refreshing";
+      try {
+        const response = await fetch("{{ url_for('dashboard_logs_data') }}?limit=80", {
+          credentials: "same-origin",
+          headers: { "accept": "application/json" }
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        renderLogs(data.events || []);
+        pollState.textContent = "live";
+        lastUpdated.textContent = new Intl.DateTimeFormat("id-ID", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit"
+        }).format(new Date());
+      } catch (error) {
+        pollState.textContent = "offline";
+      } finally {
+        inFlight = false;
+      }
+    }
+
+    refreshLogs();
+    setInterval(refreshLogs, 3000);
+  </script>
+{% endblock %}

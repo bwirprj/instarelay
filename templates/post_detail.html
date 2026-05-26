@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}{{ post.id }} · Instagram Scheduler{% endblock %}
+{% block content %}
+  <section class="detailHeader">
+    <div>
+      <h1>{{ post.headline or post.id }}</h1>
+      <p>{{ post.source }} · {{ post.external_id or "no external id" }}</p>
+    </div>
+    <span class="status {{ post.status }}">{{ post.status }}</span>
+  </section>
+
+  <section class="actions">
+    <form method="post" action="{{ url_for('dashboard_publish_now', post_id=post.id) }}"><button>Publish now</button></form>
+    <form method="post" action="{{ url_for('dashboard_retry', post_id=post.id) }}"><button>Retry</button></form>
+    <form method="post" action="{{ url_for('dashboard_cancel', post_id=post.id) }}"><button class="danger">Cancel</button></form>
+    <form method="post" action="{{ url_for('dashboard_resend_callback', post_id=post.id) }}"><button>Resend callback</button></form>
+  </section>
+
+  <section class="grid">
+    <div>
+      <h2>Post</h2>
+      <dl>
+        <dt>Schedule</dt><dd>{{ post.scheduled_date_wib }} {{ post.scheduled_time_wib }} WIB</dd>
+        <dt>Retry</dt><dd>{{ post.retry_count }}/{{ post.max_retries }}</dd>
+        <dt>Callback</dt><dd>{{ post.callback_status }}</dd>
+        <dt>Error</dt><dd>{{ post.error_message or "-" }}</dd>
+      </dl>
+      <h3>Caption</h3>
+      <pre>{{ post.caption }}</pre>
+      <h3>Hashtags</h3>
+      <pre>{{ post.hashtags | join(" ") }}</pre>
+    </div>
+    <div>
+      <h2>Media</h2>
+      <div class="mediaGrid">
+        {% for file in post.media_files %}
+          {% set filename = file.split("/")[-1] %}
+          <a href="{{ url_for('dashboard_media', post_id=post.id, filename=filename) }}">
+            <img src="{{ url_for('dashboard_media', post_id=post.id, filename=filename) }}" alt="{{ filename }}">
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Events</h2>
+    <div class="timeline">
+      {% for event in events %}
+        <div class="event">
+          <strong>{{ event.event_type }}</strong>
+          <span>{{ event.created_at }}</span>
+          <p>{{ event.message }}</p>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

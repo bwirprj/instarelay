@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}System Logs · Instagram Scheduler{% endblock %}
+{% block content %}
+  <section class="logsHeader">
+    <div>
+      <h1>System Logs</h1>
+      <p>Live workflow updates from API, scheduler, worker, media ingest, and callback events.</p>
+    </div>
+    <div class="runtime">
+      <span class="pill" id="pollState">connecting</span>
+      <span class="pill" id="lastUpdated">never</span>
+    </div>
+  </section>
+
+  <section class="logPanel">
+    <div id="logList" class="logList" aria-live="polite"></div>
+  </section>
+
+  <script>
+    const logList = document.getElementById("logList");
+    const pollState = document.getElementById("pollState");
+    const lastUpdated = document.getElementById("lastUpdated");
+    let inFlight = false;
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function formatMeta(meta) {
+      const entries = Object.entries(meta || {}).filter(([key]) => !/(api|token|secret|password|key)/i.test(key));
+      if (!entries.length) return "";
+      return entries.map(([key, value]) => {
+        const text = typeof value === "string" || typeof value === "number" || typeof value === "boolean"
+          ? String(value)
+          : JSON.stringify(value);
+        return `${key}: ${text}`;
+      }).join(" · ");
+    }
+
+    function render(events) {
+      if (!events.length) {
+        logList.innerHTML = '<div class="emptyState">No logs yet.</div>';
+        return;
+      }
+      logList.innerHTML = events.map((event) => {
+        const title = escapeHtml(event.headline || event.external_id || event.post_id || "system");
+        const meta = escapeHtml(formatMeta(event.meta));
+        const level = escapeHtml(event.level);
+        const status = escapeHtml(event.status || "");
+        const eventType = escapeHtml(event.event_type);
+        const message = escapeHtml(event.message);
+        const source = escapeHtml(event.source || "");
+        const postId = encodeURIComponent(event.post_id || "");
+        const postHref = event.post_id ? `{{ url_for('dashboard_posts') }}/${event.post_id}` : "";
+        return `
+          <article class="logItem ${level}">
+            <div class="logTime">${escapeHtml(event.created_at)}</div>
+            <div class="logMain">
+              <div class="logLine">
+                <span class="logLevel ${level}">${level}</span>
+                <strong>${eventType}</strong>
+                ${status ? `<span class="status ${status}">${status}</span>` : ""}
+              </div>
+              <div class="logMessage">${message}</div>
+              <div class="logContext">
+                ${postHref ? `<a href="{{ url_for('dashboard_posts') }}/${postId}">${title}</a>` : title}
+                ${source ? `<span>${source}</span>` : ""}
+                ${meta ? `<span>${meta}</span>` : ""}
+              </div>
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    async function refreshLogs() {
+      if (inFlight) return;
+      inFlight = true;
+      pollState.textContent = "refreshing";
+      try {
+        const response = await fetch("{{ url_for('dashboard_logs_data') }}?limit=120", {
+          credentials: "same-origin",
+          headers: { "accept": "application/json" }
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        render(data.events || []);
+        pollState.textContent = "live";
+        lastUpdated.textContent = new Intl.DateTimeFormat("id-ID", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit"
+        }).format(new Date());
+      } catch (error) {
+        pollState.textContent = "offline";
+      } finally {
+        inFlight = false;
+      }
+    }
+
+    refreshLogs();
+    setInterval(refreshLogs, 3000);
+  </script>
+{% endblock %}

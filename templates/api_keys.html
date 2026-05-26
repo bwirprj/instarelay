@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}API Keys · Instagram Scheduler{% endblock %}
+{% block content %}
+  <h1>API Keys</h1>
+  {% if token %}
+    <section class="secretBox">
+      <h2>Copy this key now</h2>
+      <p>The full API key is shown once.</p>
+      <pre>{{ token }}</pre>
+    </section>
+  {% endif %}
+  <form class="inlineForm" method="post" action="{{ url_for('dashboard_create_key') }}">
+    <input name="name" value="homelessbot" placeholder="Key name">
+    <button>Create key</button>
+  </form>
+  <div class="tableWrap">
+    <table>
+      <thead><tr><th>Name</th><th>Prefix</th><th>Status</th><th>Last used</th><th></th></tr></thead>
+      <tbody>
+        {% for key in keys %}
+          <tr>
+            <td>{{ key.name }}</td>
+            <td><code>{{ key.key_prefix }}</code></td>
+            <td>{{ key.status }}</td>
+            <td>{{ key.last_used_at or "-" }}</td>
+            <td>
+              {% if key.status == "active" %}
+              <form method="post" action="{{ url_for('dashboard_revoke_key', key_id=key.id) }}">
+                <button class="danger">Revoke</button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

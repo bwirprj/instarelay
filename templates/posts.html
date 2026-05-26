@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Posts · Instagram Scheduler{% endblock %}
+{% block content %}
+  <div class="sectionTitle">
+    <h1>Posts</h1>
+    <div class="filters">
+      <a href="{{ url_for('dashboard_posts') }}">all</a>
+      {% for item in ["pending", "processing", "retry_scheduled", "published", "failed", "canceled"] %}
+        <a href="{{ url_for('dashboard_posts') }}?status={{ item }}">{{ item }}</a>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="tableWrap">
+    <table>
+      <thead>
+        <tr><th>Headline</th><th>Schedule</th><th>Status</th><th>Retry</th><th>Callback</th><th>External</th></tr>
+      </thead>
+      <tbody>
+      {% for post in data["items"] %}
+        <tr>
+          <td><a href="{{ url_for('dashboard_post_detail', post_id=post.id) }}">{{ post.headline or post.id }}</a></td>
+          <td>{{ post.scheduled_date_wib }} {{ post.scheduled_time_wib }} WIB</td>
+          <td><span class="status {{ post.status }}">{{ post.status }}</span></td>
+          <td>{{ post.retry_count }}/{{ post.max_retries }}</td>
+          <td>{{ post.callback_status }}</td>
+          <td>{{ post.source }} · {{ post.external_id or "-" }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}
