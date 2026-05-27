@@ -81,7 +81,7 @@ def get_settings() -> Settings:
         worker_enabled=_bool("WORKER_ENABLED", True),
         instagram_dry_run=_bool("IG_DRY_RUN", False),
         playwright_headless=_bool("PLAYWRIGHT_HEADLESS", True),
-        instagram_username=os.getenv("IG_USERNAME", "menitambahan").strip() or "menitambahan",
+        instagram_username=os.getenv("IG_USERNAME", "").strip(),
         max_media_bytes=_int("MAX_MEDIA_BYTES", 15 * 1024 * 1024),
         upload_timeout_seconds=_int("UPLOAD_TIMEOUT_SECONDS", 120),
         stuck_processing_minutes=_int("STUCK_PROCESSING_MINUTES", 30),

@@ -1,1 +1,1 @@
-"""Instagram Scheduler app."""
+"""InstaRelay app."""

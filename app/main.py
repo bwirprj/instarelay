@@ -48,7 +48,7 @@ async def lifespan(_: FastAPI):
     stop_scheduler()
 
 
-app = FastAPI(title="Instagram Scheduler", root_path=settings.root_path, lifespan=lifespan)
+app = FastAPI(title="InstaRelay", root_path=settings.root_path, lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=str(settings.project_root / "static")), name="static")
 
 

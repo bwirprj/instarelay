@@ -8,7 +8,7 @@ from app.security import create_api_key
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Instagram Scheduler CLI")
+    parser = argparse.ArgumentParser(description="InstaRelay CLI")
     sub = parser.add_subparsers(dest="command", required=True)
     create = sub.add_parser("create-key", help="Create an API key")
     create.add_argument("--name", default="homelessbot")

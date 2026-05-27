@@ -72,7 +72,7 @@ def require_admin(credentials: Annotated[HTTPBasicCredentials | None, Depends(ba
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",
-            headers={"WWW-Authenticate": 'Basic realm="Instagram Scheduler"'},
+            headers={"WWW-Authenticate": 'Basic realm="InstaRelay"'},
         )
     username_ok = hmac.compare_digest(credentials.username, settings.admin_username)
     password_ok = hmac.compare_digest(credentials.password, settings.admin_password)
@@ -80,7 +80,7 @@ def require_admin(credentials: Annotated[HTTPBasicCredentials | None, Depends(ba
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",
-            headers={"WWW-Authenticate": 'Basic realm="Instagram Scheduler"'},
+            headers={"WWW-Authenticate": 'Basic realm="InstaRelay"'},
         )
     return credentials.username
 

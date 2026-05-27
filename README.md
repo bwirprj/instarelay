@@ -1,9 +1,10 @@
-# Instagram Scheduler
+# InstaRelay
 
-Personal Instagram post scheduler and posting gateway for a single Instagram
-account. The app receives scheduled carousel posts from an upstream system such
-as `homelessbot`, stores the job locally, uploads through Instagram Web with
-Playwright, and sends status callbacks back to the upstream system.
+InstaRelay is a personal Instagram post scheduler and posting gateway for a
+single Instagram account. The app receives scheduled carousel posts from an
+upstream system such as `homelessbot`, stores the job locally, uploads through
+Instagram Web with Playwright, and sends status callbacks back to the upstream
+system.
 
 This repository intentionally contains clean source code only. Runtime files,
 secrets, browser profiles, copied media, screenshots, SQLite databases, and
@@ -93,7 +94,7 @@ static/
   Dashboard CSS
 
 systemd/
-  ig-scheduler.service
+  instarelay.service
 ```
 
 ## Requirements
@@ -126,16 +127,17 @@ cp .env.example .env
 For local testing, edit `.env` and point paths to local folders. Example:
 
 ```txt
-PROJECT_ROOT=/absolute/path/to/schedulerapp
-DATABASE_PATH=/absolute/path/to/schedulerapp/db/scheduler.sqlite3
-UPLOADS_DIR=/absolute/path/to/schedulerapp/uploads
-SCREENSHOTS_DIR=/absolute/path/to/schedulerapp/screenshots
-PROFILE_DIR=/absolute/path/to/schedulerapp/profile
+PROJECT_ROOT=/absolute/path/to/instarelay
+DATABASE_PATH=/absolute/path/to/instarelay/db/scheduler.sqlite3
+UPLOADS_DIR=/absolute/path/to/instarelay/uploads
+SCREENSHOTS_DIR=/absolute/path/to/instarelay/screenshots
+PROFILE_DIR=/absolute/path/to/instarelay/profile
 HOMELESSBOT_MEDIA_ROOT=/absolute/path/to/homelessbot/public/generated
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=local-password
 API_KEY_PEPPER=local-random-pepper
 CALLBACK_SHARED_SECRET=local-random-secret
+IG_USERNAME=your-instagram-username
 IG_DRY_RUN=true
 SCHEDULER_ENABLED=false
 ```
@@ -160,12 +162,12 @@ http://127.0.0.1:8000/
 ### Core Paths
 
 ```txt
-PROJECT_ROOT=/home/ubuntu/schedulerapp
-DATABASE_PATH=/home/ubuntu/schedulerapp/db/scheduler.sqlite3
-UPLOADS_DIR=/home/ubuntu/schedulerapp/uploads
-SCREENSHOTS_DIR=/home/ubuntu/schedulerapp/screenshots
-PROFILE_DIR=/home/ubuntu/schedulerapp/profile
-LOGS_DIR=/home/ubuntu/schedulerapp/logs
+PROJECT_ROOT=/home/ubuntu/instarelay
+DATABASE_PATH=/home/ubuntu/instarelay/db/scheduler.sqlite3
+UPLOADS_DIR=/home/ubuntu/instarelay/uploads
+SCREENSHOTS_DIR=/home/ubuntu/instarelay/screenshots
+PROFILE_DIR=/home/ubuntu/instarelay/profile
+LOGS_DIR=/home/ubuntu/instarelay/logs
 HOMELESSBOT_MEDIA_ROOT=/home/ubuntu/homelessbot/public/generated
 ```
 
@@ -176,6 +178,7 @@ ADMIN_USERNAME=admin
 ADMIN_PASSWORD=change-this-password
 API_KEY_PEPPER=change-this-random-pepper
 CALLBACK_SHARED_SECRET=change-this-callback-secret
+IG_USERNAME=your-instagram-username
 ```
 
 `ADMIN_USERNAME` and `ADMIN_PASSWORD` protect the dashboard with Basic Auth.
@@ -192,13 +195,13 @@ X-Instagram-Scheduler-Secret: <secret>
 ### Public URL And Routing
 
 ```txt
-PUBLIC_BASE_URL=https://example.com/ig-scheduler
-ROOT_PATH=/ig-scheduler
+PUBLIC_BASE_URL=https://example.com/instarelay
+ROOT_PATH=/instarelay
 APP_TIMEZONE=Asia/Jakarta
 ```
 
 Set `ROOT_PATH` when the app is mounted behind a reverse proxy path such as
-`/ig-scheduler`.
+`/instarelay`.
 
 ### Worker Flags
 
@@ -302,7 +305,7 @@ Payload:
   "hashtags": ["#tech", "#automation"],
   "post_date": "2026-05-21",
   "post_time": "19:00",
-  "callback_url": "http://127.0.0.1:3005/api/instagram-scheduler/callback",
+  "callback_url": "http://127.0.0.1:3005/api/instarelay/callback",
   "metadata": {
     "draft_id": "draft_abc123"
   }
@@ -560,7 +563,7 @@ vnc://127.0.0.1:5901
 Then run:
 
 ```bash
-cd /home/ubuntu/schedulerapp
+cd /home/ubuntu/instarelay
 set -a
 . ./.env
 set +a
@@ -578,7 +581,7 @@ Stop the temporary VNC processes after login.
 Install dependencies:
 
 ```bash
-cd /home/ubuntu/schedulerapp
+cd /home/ubuntu/instarelay
 python3 -m venv .venv
 . .venv/bin/activate
 pip install --upgrade pip
@@ -598,11 +601,11 @@ chmod 600 .env
 Install systemd service:
 
 ```bash
-sudo cp systemd/ig-scheduler.service /etc/systemd/system/ig-scheduler.service
+sudo cp systemd/instarelay.service /etc/systemd/system/instarelay.service
 sudo systemctl daemon-reload
-sudo systemctl enable ig-scheduler.service
-sudo systemctl restart ig-scheduler.service
-sudo systemctl status ig-scheduler.service
+sudo systemctl enable instarelay.service
+sudo systemctl restart instarelay.service
+sudo systemctl status instarelay.service
 ```
 
 The provided service runs:
@@ -613,14 +616,14 @@ The provided service runs:
 
 ## Reverse Proxy Example With Caddy
 
-Example when mounting this app at `/ig-scheduler` while another app uses the
+Example when mounting this app at `/instarelay` while another app uses the
 root path:
 
 ```caddyfile
 example.com {
     encode zstd gzip
 
-    handle_path /ig-scheduler* {
+    handle_path /instarelay* {
         reverse_proxy 127.0.0.1:8008
     }
 
@@ -631,8 +634,8 @@ example.com {
 Set:
 
 ```txt
-ROOT_PATH=/ig-scheduler
-PUBLIC_BASE_URL=https://example.com/ig-scheduler
+ROOT_PATH=/instarelay
+PUBLIC_BASE_URL=https://example.com/instarelay
 ```
 
 ## Homelessbot Integration
@@ -640,16 +643,16 @@ PUBLIC_BASE_URL=https://example.com/ig-scheduler
 Recommended upstream environment variables:
 
 ```txt
-IG_SCHEDULER_BASE_URL=https://example.com/ig-scheduler
-IG_SCHEDULER_API_KEY=igs_live_xxxxxxxxx
-IG_SCHEDULER_CALLBACK_SECRET=xxxxxxxxx
-IG_SCHEDULER_MEDIA_MODE=shared_path
+INSTARELAY_BASE_URL=https://example.com/instarelay
+INSTARELAY_API_KEY=igs_live_xxxxxxxxx
+INSTARELAY_CALLBACK_SECRET=xxxxxxxxx
+INSTARELAY_MEDIA_MODE=shared_path
 ```
 
 Recommended upstream callback endpoint:
 
 ```http
-POST /api/instagram-scheduler/callback
+POST /api/instarelay/callback
 X-Instagram-Scheduler-Secret: <secret>
 ```
 
@@ -681,13 +684,13 @@ python -m app.cli create-key --name homelessbot
 View logs:
 
 ```bash
-sudo journalctl -u ig-scheduler.service -f
+sudo journalctl -u instarelay.service -f
 ```
 
 Restart:
 
 ```bash
-sudo systemctl restart ig-scheduler.service
+sudo systemctl restart instarelay.service
 ```
 
 Manual scheduler tick:
